@@ -13,10 +13,11 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from './types'
+import { validateSupabaseEnv } from './env'
 
 export function createClient() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  // Validate environment variables are set
+  const { url, anonKey } = validateSupabaseEnv()
+
+  return createBrowserClient<Database>(url, anonKey)
 }

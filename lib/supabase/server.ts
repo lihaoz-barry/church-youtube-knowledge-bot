@@ -17,13 +17,17 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from './types'
+import { validateSupabaseEnv } from './env'
 
 export function createClient() {
   const cookieStore = cookies()
 
+  // Validate environment variables are set
+  const { url, anonKey } = validateSupabaseEnv()
+
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         get(name: string) {
@@ -62,9 +66,20 @@ export function createClient() {
  * ⚠️ WARNING: Always manually filter by church_id when using this client!
  */
 export function createServiceClient() {
+  // Validate environment variables are set
+  const { url } = validateSupabaseEnv()
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!serviceRoleKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY environment variable is required for service client.\n' +
+      'Add this to Vercel Dashboard → Settings → Environment Variables'
+    )
+  }
+
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    url,
+    serviceRoleKey,
     {
       cookies: {
         get(name: string) {
