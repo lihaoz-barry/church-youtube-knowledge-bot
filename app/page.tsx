@@ -2,10 +2,17 @@ import { Youtube, MessageSquare, Zap, Search, Play } from "lucide-react";
 import { YouTubeConnectCard } from "@/components/youtube/connect-card";
 import { TelegramConnectCard } from "@/components/telegram/connect-card";
 import { FeatureCard } from "@/components/feature-card";
+import { UserNav } from "@/components/auth/user-nav";
+import Link from "next/link";
 
 export default function Home() {
   return (
     <main className="container mx-auto px-4 py-12">
+      {/* Auth Navigation */}
+      <div className="flex justify-end mb-8">
+        <UserNav />
+      </div>
+
       {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -14,6 +21,13 @@ export default function Home() {
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
           Transform your sermon library into an AI-powered knowledge base. Connect → Process → Query.
         </p>
+
+        {/* Test Link */}
+        <div className="mt-6">
+          <Link href="/login" className="text-sm text-blue-600 hover:underline">
+            → Test Authentication & Database Connection
+          </Link>
+        </div>
       </div>
 
       {/* Connection Cards */}
