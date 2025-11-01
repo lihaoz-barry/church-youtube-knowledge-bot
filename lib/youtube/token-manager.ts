@@ -32,8 +32,8 @@ export async function getYouTubeTokens(
   const supabase = createClient();
 
   // Get stored tokens from database
-  const { data: tokenData, error: fetchError } = await supabase
-    .from('oauth_tokens')
+  const { data: tokenData, error: fetchError } = await (supabase
+    .from('oauth_tokens') as any)
     .select('access_token, refresh_token, expires_at')
     .eq('church_id', churchId)
     .eq('provider', 'youtube')
@@ -72,9 +72,9 @@ export async function getYouTubeTokens(
       const encryptedAccessToken = encrypt(newTokens.access_token);
 
       // Update database with new access token
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase
         .from('oauth_tokens')
-        .update({
+        .update as any)({
           access_token: encryptedAccessToken,
           expires_at: newTokens.expiry_date
             ? new Date(newTokens.expiry_date).toISOString()
@@ -153,9 +153,9 @@ export async function disconnectYouTube(churchId: string): Promise<void> {
   }
 
   // Also clear YouTube channel info from church record
-  await supabase
+  await (supabase
     .from('churches')
-    .update({
+    .update as any)({
       youtube_channel_id: null,
       youtube_channel_name: null,
       youtube_channel_thumbnail: null,

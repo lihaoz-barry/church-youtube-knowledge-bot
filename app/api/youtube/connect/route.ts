@@ -11,8 +11,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types';
 import { generateAuthUrl } from '@/lib/youtube/oauth';
 import crypto from 'crypto';
 
@@ -22,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Get Supabase client (includes RLS enforcement)
     const supabase = createClient();
-    const service: SupabaseClient<Database> = createServiceClient();
+    const service = createServiceClient();
 
     // 2. Get church_id from auth user (multi-tenancy)
     // Use getUser() instead of getSession() for server-side security
@@ -42,8 +40,8 @@ export async function POST(request: NextRequest) {
 
     // Get or create church for this user
     // Note: Use service role to bypass RLS during initial provisioning
-    const { data: church, error: churchError } = await service
-      .from('churches')
+    const { data: church, error: churchError } = await (service
+      .from('churches') as any)
       .select('id')
       .eq('id', userId)
       .single();
@@ -52,14 +50,12 @@ export async function POST(request: NextRequest) {
 
     if (churchError || !church) {
       // Create church for this user
-      const { data: newChurch, error: createError } = await service
+      const { data: newChurch, error: createError } = await (service
         .from('churches')
-        .insert([
-          {
-            id: userId,
-            name: user.email || 'My Church',
-          } satisfies Database['public']['Tables']['churches']['Insert']
-        ])
+        .insert as any)({
+          id: userId,
+          name: user.email || 'My Church',
+        })
         .select('id')
         .single();
 

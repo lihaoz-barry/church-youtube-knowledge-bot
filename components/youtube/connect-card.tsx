@@ -57,8 +57,8 @@ export function YouTubeConnectCard() {
       const userId = session.user.id;
 
       // Get church record for this user
-      const { data: church, error: churchError } = await supabase
-        .from('churches')
+      const { data: church, error: churchError } = await (supabase
+        .from('churches') as any)
         .select('youtube_channel_id, youtube_channel_name, youtube_channel_thumbnail')
         .eq('id', userId)
         .single();
