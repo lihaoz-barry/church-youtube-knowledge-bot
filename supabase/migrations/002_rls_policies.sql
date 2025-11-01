@@ -46,10 +46,11 @@ CREATE POLICY "Users can update their own church"
   WITH CHECK (id = public.get_user_church_id());
 
 -- Users can insert their own church (during signup)
+-- For MVP: church_id = user_id, so users can create church with id = auth.uid()
 CREATE POLICY "Users can insert their own church"
   ON public.churches
   FOR INSERT
-  WITH CHECK (id = public.get_user_church_id());
+  WITH CHECK (id = auth.uid());
 
 -- ============================================
 -- 3. OAUTH_TOKENS TABLE POLICIES

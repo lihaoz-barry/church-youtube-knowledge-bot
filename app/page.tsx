@@ -1,17 +1,72 @@
-import { Youtube, MessageSquare, Zap, Search, Play } from "lucide-react";
+'use client';
+
+import { Youtube, MessageSquare, Zap, Search, Play, CheckCircle, XCircle } from "lucide-react";
 import { YouTubeConnectCard } from "@/components/youtube/connect-card";
 import { TelegramConnectCard } from "@/components/telegram/connect-card";
 import { FeatureCard } from "@/components/feature-card";
 import { UserNav } from "@/components/auth/user-nav";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function Home() {
+  const searchParams = useSearchParams();
+  const [showMessage, setShowMessage] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+
+    if (success) {
+      setMessage({ type: 'success', text: success });
+      setShowMessage(true);
+      // Auto-hide after 5 seconds
+      setTimeout(() => setShowMessage(false), 5000);
+    } else if (error) {
+      setMessage({ type: 'error', text: error });
+      setShowMessage(true);
+      // Auto-hide after 7 seconds (errors stay longer)
+      setTimeout(() => setShowMessage(false), 7000);
+    }
+  }, [searchParams]);
+
   return (
     <main className="container mx-auto px-4 py-12">
       {/* Auth Navigation */}
       <div className="flex justify-end mb-8">
         <UserNav />
       </div>
+
+      {/* Success/Error Message Banner */}
+      {showMessage && message && (
+        <div className={`max-w-5xl mx-auto mb-6 p-4 rounded-lg border ${
+          message.type === 'success'
+            ? 'bg-green-50 border-green-200'
+            : 'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            {message.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            )}
+            <p className={`text-sm ${
+              message.type === 'success' ? 'text-green-800' : 'text-red-800'
+            }`}>
+              {message.text}
+            </p>
+            <button
+              onClick={() => setShowMessage(false)}
+              className={`ml-auto text-sm ${
+                message.type === 'success' ? 'text-green-600 hover:text-green-800' : 'text-red-600 hover:text-red-800'
+              }`}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="text-center mb-12">
