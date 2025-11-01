@@ -19,19 +19,21 @@ export async function POST(request: NextRequest) {
     // 1. Get Supabase client (includes RLS enforcement)
     const supabase = createClient();
 
-    // 2. Get church_id from auth session (multi-tenancy)
+    // 2. Get church_id from auth user (multi-tenancy)
+    // Use getUser() instead of getSession() for server-side security
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (!session?.user) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized - please sign in first' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
 
     // Get or create church for this user
     const { data: church, error: churchError } = await supabase
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
         .from('churches')
         .insert({
           id: userId,
-          name: session.user.email || 'My Church',
+          name: user.email || 'My Church',
         })
         .select('id')
         .single();

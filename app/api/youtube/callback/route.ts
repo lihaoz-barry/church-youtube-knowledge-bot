@@ -41,14 +41,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 2. Get Supabase client and verify session
+    // 2. Get Supabase client and verify user
     const supabase = createClient();
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (!session?.user) {
+    if (authError || !user) {
       return NextResponse.redirect(
         `${request.nextUrl.origin}/login?error=${encodeURIComponent(
           'Session expired. Please sign in and try again.'
@@ -56,11 +57,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
 
     // 3. Verify state for CSRF protection
-    const storedState = session.user.user_metadata?.oauth_state;
-    const stateExpires = session.user.user_metadata?.oauth_state_expires;
+    const storedState = user.user_metadata?.oauth_state;
+    const stateExpires = user.user_metadata?.oauth_state_expires;
 
     if (storedState !== state) {
       console.warn('OAuth state mismatch', {
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
         .from('churches')
         .insert({
           id: userId,
-          name: session.user.email || channelInfo.name,
+          name: user.email || channelInfo.name,
           youtube_channel_id: channelInfo.id,
           youtube_channel_name: channelInfo.name,
           youtube_channel_thumbnail: channelInfo.thumbnail,
