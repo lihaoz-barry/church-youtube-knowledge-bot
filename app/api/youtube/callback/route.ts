@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { exchangeCodeForTokens } from '@/lib/youtube/oauth';
 import { getChannelInfo } from '@/lib/youtube/api';
 import { encrypt } from '@/lib/utils/encryption';
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Get Supabase client and verify user
     const supabase = createClient();
+    const service = createServiceClient();
 
     const {
       data: { user },
@@ -87,7 +88,8 @@ export async function GET(request: NextRequest) {
     const channelInfo = await getChannelInfo(tokens.access_token);
 
     // 6. Get or ensure church exists
-    const { data: church } = await supabase
+    // Use service role to ensure church exists and bypass RLS during provisioning
+    const { data: church } = await service
       .from('churches')
       .select('id')
       .eq('id', userId)
@@ -96,7 +98,7 @@ export async function GET(request: NextRequest) {
     let churchId: string;
 
     if (!church) {
-      const { data: newChurch, error: createError } = await supabase
+      const { data: newChurch, error: createError } = await service
         .from('churches')
         .insert({
           id: userId,
@@ -117,7 +119,7 @@ export async function GET(request: NextRequest) {
       churchId = church.id;
 
       // Update church with YouTube channel info
-      await supabase
+      await service
         .from('churches')
         .update({
           youtube_channel_id: channelInfo.id,
@@ -135,7 +137,7 @@ export async function GET(request: NextRequest) {
       : null;
 
     // 8. Upsert OAuth tokens (insert or update if exists)
-    const { error: tokenError } = await supabase.from('oauth_tokens').upsert(
+    const { error: tokenError } = await service.from('oauth_tokens').upsert(
       {
         church_id: churchId,
         provider: 'youtube',

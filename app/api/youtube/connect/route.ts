@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { generateAuthUrl } from '@/lib/youtube/oauth';
 import crypto from 'crypto';
 
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Get Supabase client (includes RLS enforcement)
     const supabase = createClient();
+    const service = createServiceClient();
 
     // 2. Get church_id from auth user (multi-tenancy)
     // Use getUser() instead of getSession() for server-side security
@@ -36,7 +37,8 @@ export async function POST(request: NextRequest) {
     const userId = user.id;
 
     // Get or create church for this user
-    const { data: church, error: churchError } = await supabase
+    // Note: Use service role to bypass RLS during initial provisioning
+    const { data: church, error: churchError } = await service
       .from('churches')
       .select('id')
       .eq('id', userId)
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     if (churchError || !church) {
       // Create church for this user
-      const { data: newChurch, error: createError } = await supabase
+      const { data: newChurch, error: createError } = await service
         .from('churches')
         .insert({
           id: userId,
@@ -81,6 +83,14 @@ export async function POST(request: NextRequest) {
     // 5. Generate OAuth authorization URL
     const redirectUri = `${request.nextUrl.origin}/api/youtube/callback`;
     const authUrl = generateAuthUrl(redirectUri, state);
+
+    // Debug: log OAuth parameters to help resolve redirect_uri issues locally
+    console.log('OAuth connect debug', {
+      endpoint: '/api/youtube/connect',
+      redirectUri,
+      origin: request.nextUrl.origin,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+    });
 
     // Store state in session metadata for verification on callback
     // Note: In production, consider using a dedicated states table
