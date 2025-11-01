@@ -50,10 +50,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {/* Add React Query Devtools in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <DevTools />
-      )}
+      {/* DevTools disabled for now to prevent loading issues */}
     </QueryClientProvider>
   )
 }
@@ -62,6 +59,12 @@ export function QueryProvider({ children }: QueryProviderProps) {
 function DevTools() {
   if (typeof window === 'undefined') return null
 
-  const { ReactQueryDevtools } = require('@tanstack/react-query-devtools')
-  return <ReactQueryDevtools initialIsOpen={false} />
+  try {
+    const { ReactQueryDevtools } = require('@tanstack/react-query-devtools')
+    return <ReactQueryDevtools initialIsOpen={false} />
+  } catch (error) {
+    // If devtools fail to load, just return null
+    console.warn('React Query Devtools failed to load:', error)
+    return null
+  }
 }
