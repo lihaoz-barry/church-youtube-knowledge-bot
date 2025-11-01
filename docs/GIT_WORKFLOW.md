@@ -2,18 +2,27 @@
 
 ## Overview
 
-This project enforces a branch-based development workflow. **Direct pushes to `main` are not allowed.** All changes must go through a Pull Request.
+This project uses a **staging-based development workflow** with three main branches:
+
+- **`main`** - Production-ready code (protected)
+- **`staging`** - Integration branch for testing (protected, has static Vercel URL)
+- **Feature branches** - Individual development work
+
+**Important:**
+- Direct pushes to `main` and `staging` are **NOT allowed**
+- All changes go through Pull Requests
+- PRs merge into `staging` first, then `staging` → `main` after testing
 
 ## Workflow Steps
 
 ### 1. Create a Feature Branch
 
 ```bash
-# Update main branch
-git checkout main
-git pull origin main
+# Update staging branch
+git checkout staging
+git pull origin staging
 
-# Create feature branch (use descriptive name)
+# Create feature branch from staging (use descriptive name)
 git checkout -b feature/youtube-oauth-flow
 # or
 git checkout -b fix/database-connection-error
@@ -66,18 +75,22 @@ git commit -m "feat(US1): implement YouTube OAuth flow
 git push -u origin feature/youtube-oauth-flow
 ```
 
-### 4. Create Pull Request
+### 4. Create Pull Request (to staging)
+
+**IMPORTANT: Set base branch to `staging`, not `main`!**
 
 **Via GitHub Web:**
 1. Go to repository on GitHub
 2. Click "Compare & pull request"
-3. Fill out PR template
-4. Request review if applicable
-5. Link related issues/tasks
+3. **Change base branch from `main` to `staging`**
+4. Fill out PR template
+5. Request review if applicable
+6. Link related issues/tasks
 
 **Via GitHub CLI:**
 ```bash
-gh pr create --title "feat(US1): Implement YouTube OAuth flow" \
+gh pr create --base staging \
+  --title "feat(US1): Implement YouTube OAuth flow" \
   --body "Implements Task T021 - YouTube OAuth initiation"
 ```
 
@@ -111,27 +124,60 @@ gh pr merge --squash --delete-branch
 ### 6. Clean Up
 
 ```bash
-# Switch back to main
-git checkout main
+# Switch back to staging
+git checkout staging
 
 # Pull latest changes
-git pull origin main
+git pull origin staging
 
 # Delete local branch
 git branch -d feature/youtube-oauth-flow
 ```
 
+### 7. Promote Staging to Main (Production Release)
+
+After testing on the staging deployment, promote changes to production:
+
+```bash
+# Update local branches
+git checkout main
+git pull origin main
+git checkout staging
+git pull origin staging
+
+# Create PR from staging to main
+gh pr create --base main --head staging \
+  --title "release: Deploy staging to production" \
+  --body "Promoting tested changes from staging to production.
+
+Changes included:
+- List major features/fixes being deployed
+
+Tested on staging: https://church-youtube-knowledge-bot-staging.vercel.app
+Ready for production deployment.
+"
+
+# After approval, merge to main
+# This will trigger production deployment on Vercel
+```
+
+**When to promote staging → main:**
+- After completing a user story
+- After fixing critical bugs
+- At regular intervals (e.g., weekly releases)
+- When staging has been tested and verified stable
+
 ## Branch Protection Rules
 
 ### GitHub Repository Settings
 
-To enforce this workflow, configure these settings on GitHub:
+To enforce this workflow, configure branch protection for **both `main` and `staging`** branches.
 
 **Navigate to:** Settings → Branches → Branch protection rules → Add rule
 
-**Rule Configuration for `main` branch:**
+### Rule 1: Protect `main` branch
 
-1. **Branch name pattern:** `main`
+**Branch name pattern:** `main`
 
 2. **Protect matching branches:**
    - ✅ Require a pull request before merging
@@ -156,26 +202,69 @@ To enforce this workflow, configure these settings on GitHub:
 
 3. **Save changes**
 
+### Rule 2: Protect `staging` branch
+
+**Branch name pattern:** `staging`
+
+**Protect matching branches:**
+   - ✅ Require a pull request before merging
+     - Require approvals: 0 (can be increased if team grows)
+     - ✅ Dismiss stale pull request approvals when new commits are pushed
+
+   - ✅ Require status checks to pass before merging (when CI is set up)
+     - ✅ Require branches to be up to date before merging
+
+   - ✅ Require linear history (enforces squash/rebase, prevents merge commits)
+
+   - ✅ Include administrators (even repo admins must follow rules)
+
+**Save changes**
+
+### Vercel Deployment Settings
+
+The `staging` branch will have a **static Vercel URL** for OAuth testing:
+
+1. **Go to Vercel Dashboard** → Your Project → Settings → Domains
+2. The staging branch will deploy to: `church-youtube-knowledge-bot-git-staging-[your-team].vercel.app`
+3. **Use this URL for Google OAuth redirect URI**:
+   ```
+   https://church-youtube-knowledge-bot-git-staging-[your-team].vercel.app/auth/callback
+   ```
+
+4. **Update Google Cloud Console**:
+   - Go to Google Cloud Console → APIs & Services → Credentials
+   - Edit your OAuth 2.0 Client ID
+   - Add to "Authorized redirect URIs":
+     - `http://localhost:3000/auth/callback` (for local dev)
+     - `https://church-youtube-knowledge-bot-git-staging-[your-team].vercel.app/auth/callback` (for staging)
+     - `https://your-production-domain.com/auth/callback` (later, for production)
+
+**Why this works:**
+- Preview deployments have dynamic URLs (change per PR)
+- The `staging` branch deployment has a **static URL**
+- Google OAuth requires static redirect URIs
+- This setup allows testing OAuth on staging before production
+
 ## Common Scenarios
 
-### Scenario 1: Quick Fix
+### Scenario 1: Quick Fix (to staging)
 
 ```bash
-git checkout main
+git checkout staging
 git pull
 git checkout -b fix/env-variable-error
 # Make fix
 git add .
 git commit -m "fix: Add environment variable validation"
 git push -u origin fix/env-variable-error
-gh pr create --fill
+gh pr create --base staging --fill
 gh pr merge --squash --delete-branch
 ```
 
-### Scenario 2: Feature Development
+### Scenario 2: Feature Development (to staging)
 
 ```bash
-git checkout main
+git checkout staging
 git pull
 git checkout -b feature/youtube-video-sync
 # Work on feature over multiple commits
@@ -188,41 +277,48 @@ git add .
 git commit -m "feat: Add video processing queue"
 git push
 
-# Create PR when ready
-gh pr create --fill
+# Create PR to staging when ready
+gh pr create --base staging --fill
 # Request review, wait for approval
 gh pr merge --squash --delete-branch
 ```
 
-### Scenario 3: Urgent Hotfix
+### Scenario 3: Urgent Hotfix (to staging, then main)
 
 ```bash
-git checkout main
+git checkout staging
 git pull
 git checkout -b hotfix/production-auth-error
 # Make fix
 git add .
 git commit -m "fix: Critical auth token expiry bug"
 git push -u origin hotfix/production-auth-error
-gh pr create --fill
-# Fast-track review and merge
+gh pr create --base staging --fill
+# Fast-track review and merge to staging
 gh pr merge --squash --delete-branch
+
+# After testing on staging, promote to main
+git checkout staging
+git pull
+gh pr create --base main --head staging \
+  --title "hotfix: Deploy critical auth fix to production" \
+  --fill
 ```
 
-### Scenario 4: Keeping Branch Up to Date
+### Scenario 4: Keeping Branch Up to Date (with staging)
 
 ```bash
 # On your feature branch
 git checkout feature/youtube-oauth-flow
 
-# Fetch latest main
-git fetch origin main
+# Fetch latest staging
+git fetch origin staging
 
-# Merge main into your branch
-git merge origin/main
+# Merge staging into your branch
+git merge origin/staging
 
 # Or rebase (cleaner history)
-git rebase origin/main
+git rebase origin/staging
 
 # Push updates (use --force-with-lease after rebase)
 git push --force-with-lease
@@ -231,8 +327,8 @@ git push --force-with-lease
 ## Handling Merge Conflicts
 
 ```bash
-# If conflicts occur during merge
-git merge origin/main
+# If conflicts occur during merge with staging
+git merge origin/staging
 
 # Git will mark conflicted files
 # Edit files to resolve conflicts
@@ -240,7 +336,7 @@ git merge origin/main
 
 # After resolving
 git add .
-git commit -m "Merge main and resolve conflicts"
+git commit -m "Merge staging and resolve conflicts"
 git push
 ```
 
@@ -288,13 +384,24 @@ jobs:
 
 ## Summary
 
-1. **Never push directly to `main`**
-2. **Always create a branch** for changes
+1. **Never push directly to `main` or `staging`**
+2. **Always create a branch from `staging`** for changes
 3. **Use descriptive branch names** (feature/, fix/, task/)
 4. **Write clear commit messages** with task references
-5. **Create PR** with filled-out template
-6. **Test thoroughly** before merging
-7. **Squash and merge** to keep main history clean
-8. **Delete branch** after merging
+5. **Create PR to `staging`** (not main!) with filled-out template
+6. **Test on staging deployment** (static Vercel URL for OAuth)
+7. **Promote `staging` → `main`** after testing
+8. **Squash and merge** to keep history clean
+9. **Delete branch** after merging
 
-This workflow ensures code quality, traceability, and allows for proper review and testing before changes reach production.
+## Workflow Diagram
+
+```
+feature/xyz → PR → staging → test on staging URL → PR → main → production
+```
+
+This three-tier workflow ensures:
+- **Static staging URL** for OAuth redirect testing
+- **Code quality** through PR reviews
+- **Testing** before production deployment
+- **Traceability** of all changes
