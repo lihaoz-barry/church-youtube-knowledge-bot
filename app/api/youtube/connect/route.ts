@@ -9,8 +9,6 @@
  * - Serverless-First: Stateless, stores state in database
  */
 
-export const runtime = 'nodejs'
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -18,12 +16,13 @@ import type { Database } from '@/lib/supabase/types';
 import { generateAuthUrl } from '@/lib/youtube/oauth';
 import crypto from 'crypto';
 
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     // 1. Get Supabase client (includes RLS enforcement)
     const supabase = createClient();
     const service: SupabaseClient<Database> = createServiceClient();
-    const service = createServiceClient();
 
     // 2. Get church_id from auth user (multi-tenancy)
     // Use getUser() instead of getSession() for server-side security

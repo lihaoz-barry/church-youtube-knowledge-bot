@@ -10,8 +10,6 @@
  * - User Experience First: Actionable error messages
  */
 
-export const runtime = 'nodejs'
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -19,6 +17,8 @@ import type { Database } from '@/lib/supabase/types';
 import { exchangeCodeForTokens } from '@/lib/youtube/oauth';
 import { getChannelInfo } from '@/lib/youtube/api';
 import { encrypt } from '@/lib/utils/encryption';
+
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
