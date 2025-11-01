@@ -10,8 +10,12 @@
  * - User Experience First: Actionable error messages
  */
 
+export const runtime = 'nodejs'
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types';
 import { exchangeCodeForTokens } from '@/lib/youtube/oauth';
 import { getChannelInfo } from '@/lib/youtube/api';
 import { encrypt } from '@/lib/utils/encryption';
@@ -43,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Get Supabase client and verify user
     const supabase = createClient();
-    const service = createServiceClient();
+    const service: SupabaseClient<Database> = createServiceClient();
 
     const {
       data: { user },
@@ -100,13 +104,15 @@ export async function GET(request: NextRequest) {
     if (!church) {
       const { data: newChurch, error: createError } = await service
         .from('churches')
-        .insert({
-          id: userId,
-          name: user.email || channelInfo.name,
-          youtube_channel_id: channelInfo.id,
-          youtube_channel_name: channelInfo.name,
-          youtube_channel_thumbnail: channelInfo.thumbnail,
-        })
+        .insert([
+          {
+            id: userId,
+            name: user.email || channelInfo.name,
+            youtube_channel_id: channelInfo.id,
+            youtube_channel_name: channelInfo.name,
+            youtube_channel_thumbnail: channelInfo.thumbnail,
+          } satisfies Database['public']['Tables']['churches']['Insert']
+        ])
         .select('id')
         .single();
 
@@ -126,7 +132,7 @@ export async function GET(request: NextRequest) {
           youtube_channel_name: channelInfo.name,
           youtube_channel_thumbnail: channelInfo.thumbnail,
           updated_at: new Date().toISOString(),
-        })
+        } satisfies Database['public']['Tables']['churches']['Update'])
         .eq('id', churchId);
     }
 
@@ -137,23 +143,25 @@ export async function GET(request: NextRequest) {
       : null;
 
     // 8. Upsert OAuth tokens (insert or update if exists)
-    const { error: tokenError } = await service.from('oauth_tokens').upsert(
-      {
-        church_id: churchId,
-        provider: 'youtube',
-        access_token: encryptedAccessToken,
-        refresh_token: encryptedRefreshToken,
-        expires_at: tokens.expiry_date
-          ? new Date(tokens.expiry_date).toISOString()
-          : null,
-        scope: tokens.scope || '',
-        token_type: tokens.token_type || 'Bearer',
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'church_id,provider',
-      }
-    );
+    const { error: tokenError } = await service
+      .from('oauth_tokens')
+      .upsert(
+        {
+          church_id: churchId,
+          provider: 'youtube',
+          access_token: encryptedAccessToken,
+          refresh_token: encryptedRefreshToken,
+          expires_at: tokens.expiry_date
+            ? new Date(tokens.expiry_date).toISOString()
+            : null,
+          scope: tokens.scope || '',
+          token_type: tokens.token_type || 'Bearer',
+          updated_at: new Date().toISOString(),
+        } satisfies Database['public']['Tables']['oauth_tokens']['Insert'],
+        {
+          onConflict: 'church_id,provider',
+        }
+      );
 
     if (tokenError) {
       console.error('Failed to store OAuth tokens:', tokenError);

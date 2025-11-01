@@ -9,8 +9,12 @@
  * - Serverless-First: Stateless, stores state in database
  */
 
+export const runtime = 'nodejs'
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types';
 import { generateAuthUrl } from '@/lib/youtube/oauth';
 import crypto from 'crypto';
 
@@ -18,6 +22,7 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Get Supabase client (includes RLS enforcement)
     const supabase = createClient();
+    const service: SupabaseClient<Database> = createServiceClient();
     const service = createServiceClient();
 
     // 2. Get church_id from auth user (multi-tenancy)
@@ -50,10 +55,12 @@ export async function POST(request: NextRequest) {
       // Create church for this user
       const { data: newChurch, error: createError } = await service
         .from('churches')
-        .insert({
-          id: userId,
-          name: user.email || 'My Church',
-        })
+        .insert([
+          {
+            id: userId,
+            name: user.email || 'My Church',
+          } satisfies Database['public']['Tables']['churches']['Insert']
+        ])
         .select('id')
         .single();
 
