@@ -17,7 +17,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Youtube, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Youtube, CheckCircle2, AlertCircle, Video } from 'lucide-react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -213,6 +214,12 @@ export function YouTubeConnectCard() {
                 </div>
               </div>
             </div>
+            <Link href="/videos" className="block w-full">
+              <Button className="w-full">
+                <Video className="w-4 h-4 mr-2" />
+                View Videos
+              </Button>
+            </Link>
             <Button
               variant="outline"
               onClick={handleConnect}
