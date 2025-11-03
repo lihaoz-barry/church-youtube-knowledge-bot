@@ -17,6 +17,7 @@ import { getChannelInfo } from '@/lib/youtube/api';
 import { encrypt } from '@/lib/utils/encryption';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
