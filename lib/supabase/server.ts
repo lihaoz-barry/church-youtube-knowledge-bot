@@ -77,29 +77,21 @@ export function createServiceClient() {
     )
   }
 
-  return createServerClient<Database>(
-    url,
-    serviceRoleKey,
-    {
-      cookies: {
-        get(name: string) {
-          return cookies().get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          try {
-            cookies().set({ name, value, ...options })
-          } catch (error) {
-            // Ignore
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookies().set({ name, value: '', ...options })
-          } catch (error) {
-            // Ignore
-          }
-        },
+  // IMPORTANT: Do NOT attach user cookies to the service client.
+  // If an Authorization bearer token is sent, PostgREST will apply RLS
+  // even when using the service role key. We want a clean service client
+  // that bypasses RLS for initial provisioning tasks.
+  return createServerClient<Database>(url, serviceRoleKey, {
+    cookies: {
+      get() {
+        return undefined
       },
-    }
-  )
+      set() {
+        // no-op
+      },
+      remove() {
+        // no-op
+      },
+    },
+  })
 }

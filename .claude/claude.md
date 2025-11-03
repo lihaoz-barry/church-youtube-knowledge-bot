@@ -561,7 +561,11 @@ Before deploying any feature:
 
 ## Current Status
 
-**Branch**: `001-youtube-connection`
+**Branch Strategy**: Staging-based workflow (see `docs/GIT_WORKFLOW.md`)
+- `main` - Production (protected)
+- `staging` - Integration/testing with static Vercel URL (protected)
+- Feature branches - Development work
+
 **Phase**: Setup & Foundational (Tasks T001-T020)
 **Next Milestone**: User Story 1 - Connect YouTube Channel (Tasks T021-T027)
 
@@ -570,3 +574,9 @@ Before deploying any feature:
 
 **Documentation**: All specs complete and validated
 **Ready for**: Active development 🚀
+
+**Important**: All development work must:
+1. Branch from `staging` (not `main`)
+2. Create PR to `staging` (not `main`)
+3. Test on staging deployment
+4. Promote `staging` → `main` when ready for production
