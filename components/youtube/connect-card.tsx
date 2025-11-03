@@ -41,6 +41,17 @@ export function YouTubeConnectCard() {
     fetchConnectionStatus();
   }, []);
 
+  // Refetch connection status when URL has success parameter (after OAuth)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('success')) {
+      // Wait a bit for database to update
+      setTimeout(() => {
+        fetchConnectionStatus();
+      }, 500);
+    }
+  }, []);
+
   const fetchConnectionStatus = async () => {
     setIsLoading(true);
     setError(null);
