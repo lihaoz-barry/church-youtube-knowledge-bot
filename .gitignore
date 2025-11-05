@@ -43,3 +43,6 @@ Thumbs.db
 
 # Temporary files
 nul
+
+# SQL scripts (临时的 SQL 脚本，不提交到 git)
+supabase/sql-scripts/

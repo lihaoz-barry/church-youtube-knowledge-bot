@@ -42,57 +42,163 @@ export function YouTubeConnectCard() {
   }, []);
 
   // Refetch connection status when URL has success parameter (after OAuth)
+  // Use polling mechanism to ensure database has been updated
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('success')) {
-      // Wait a bit for database to update
-      setTimeout(() => {
-        fetchConnectionStatus();
-      }, 500);
+    const successMessage = urlParams.get('success');
+
+    if (successMessage) {
+      console.log('✅ [OAuth Success] Returned from OAuth with success message:', successMessage);
+      console.log('🔄 [Polling] Starting connection status polling...');
+
+      let attempts = 0;
+      const maxAttempts = 10; // Try for 10 seconds
+      const pollInterval = 1000; // Check every 1 second
+
+      const pollStatus = async () => {
+        attempts++;
+        console.log(`🔍 [Polling] Attempt ${attempts}/${maxAttempts}`);
+
+        await fetchConnectionStatus();
+
+        // Check if connected after fetch
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.user) {
+          const { data: church } = await (supabase
+            .from('churches') as any)
+            .select('youtube_channel_id')
+            .eq('id', session.user.id)
+            .single();
+
+          if (church?.youtube_channel_id) {
+            console.log('✅ [Polling] Connection confirmed! YouTube channel ID:', church.youtube_channel_id);
+            clearInterval(interval);
+
+            // Remove success parameter from URL
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('success');
+            window.history.replaceState({}, '', newUrl);
+            return;
+          }
+        }
+
+        if (attempts >= maxAttempts) {
+          console.warn('⚠️ [Polling] Max attempts reached without confirmation');
+          console.warn('⚠️ [Polling] Database may be slow or there was an error');
+          setError('Connection status check timed out. Please refresh the page to see if connection succeeded.');
+          clearInterval(interval);
+        }
+      };
+
+      // Start polling immediately
+      pollStatus();
+
+      // Then poll every second
+      const interval = setInterval(pollStatus, pollInterval);
+
+      // Cleanup on unmount
+      return () => clearInterval(interval);
     }
   }, []);
 
   const fetchConnectionStatus = async () => {
+    console.log('\n═══════════════════════════════════════════════════════════');
+    console.log('🔍 [fetchConnectionStatus] Starting connection status check');
+    console.log('═══════════════════════════════════════════════════════════\n');
+
     setIsLoading(true);
     setError(null);
 
     try {
       const supabase = createClient();
 
-      // Get current user session
+      // PREREQUISITE 1: Check user session
+      console.log('📋 [Prerequisite 1/4] Checking user authentication...');
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
+      console.log('   └─ User authenticated:', !!session);
+      console.log('   └─ User ID:', session?.user?.id || 'N/A');
+      console.log('   └─ User email:', session?.user?.email || 'N/A');
+      console.log('   └─ Session error:', sessionError || 'None');
+
       if (sessionError || !session?.user) {
+        console.error('   ❌ FAILED: User not authenticated');
         throw new Error('Not authenticated. Please sign in first.');
       }
+      console.log('   ✅ PASSED: User is authenticated\n');
 
       const userId = session.user.id;
 
-      // Get church record for this user
+      // PREREQUISITE 2: Check church record exists
+      console.log('📋 [Prerequisite 2/4] Checking church record...');
       const { data: church, error: churchError } = await (supabase
         .from('churches') as any)
         .select('youtube_channel_id, youtube_channel_name, youtube_channel_thumbnail')
         .eq('id', userId)
         .single();
 
+      console.log('   └─ Church record found:', !!church);
+      console.log('   └─ Church ID:', church?.id || 'N/A');
+      console.log('   └─ Query error:', churchError?.message || 'None');
+      console.log('   └─ Error code:', churchError?.code || 'N/A');
+
       if (churchError && churchError.code !== 'PGRST116') {
-        // PGRST116 = no rows returned (not an error)
+        console.error('   ❌ FAILED: Database error', churchError);
         throw churchError;
       }
 
-      // Check if YouTube is connected
+      if (!church) {
+        console.log('   ⚠️ WARNING: No church record found (will be created on first connect)');
+        console.log('   ✅ PASSED: This is normal for first-time users\n');
+      } else {
+        console.log('   ✅ PASSED: Church record exists\n');
+      }
+
+      // PREREQUISITE 3: Check YouTube channel ID
+      console.log('📋 [Prerequisite 3/4] Checking YouTube connection...');
+      console.log('   └─ youtube_channel_id:', church?.youtube_channel_id || 'Not set');
+      console.log('   └─ youtube_channel_name:', church?.youtube_channel_name || 'Not set');
+      console.log('   └─ youtube_channel_thumbnail:', church?.youtube_channel_thumbnail ? 'Set' : 'Not set');
+
       if (church?.youtube_channel_id) {
+        console.log('   ✅ PASSED: YouTube is connected\n');
+
+        // PREREQUISITE 4: Verify all required data
+        console.log('📋 [Prerequisite 4/4] Verifying connection data...');
+        console.log('   └─ Has channel ID:', !!church.youtube_channel_id);
+        console.log('   └─ Has channel name:', !!church.youtube_channel_name);
+        console.log('   └─ Has thumbnail:', !!church.youtube_channel_thumbnail);
+
         setStatus({
           isConnected: true,
           channelName: church.youtube_channel_name || undefined,
           channelThumbnail: church.youtube_channel_thumbnail || undefined,
           channelId: church.youtube_channel_id,
         });
+
+        console.log('   ✅ PASSED: All connection data verified\n');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('✅ [Result] YouTube is CONNECTED');
+        console.log('   └─ Channel:', church.youtube_channel_name);
+        console.log('   └─ Channel ID:', church.youtube_channel_id);
+        console.log('═══════════════════════════════════════════════════════════\n');
       } else {
+        console.log('   ❌ FAILED: YouTube not connected (youtube_channel_id is null)\n');
+
         setStatus({ isConnected: false });
+
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('❌ [Result] YouTube is NOT CONNECTED');
+        console.log('   └─ Action required: Click "Connect YouTube" button');
+        console.log('═══════════════════════════════════════════════════════════\n');
       }
     } catch (err) {
-      console.error('Failed to fetch connection status:', err);
+      console.error('\n❌❌❌ [ERROR] fetchConnectionStatus failed:', err);
+      console.error('   └─ Error type:', err instanceof Error ? err.constructor.name : typeof err);
+      console.error('   └─ Error message:', err instanceof Error ? err.message : String(err));
+      console.error('═══════════════════════════════════════════════════════════\n');
       setError(err instanceof Error ? err.message : 'Failed to check connection status');
     } finally {
       setIsLoading(false);
@@ -100,11 +206,34 @@ export function YouTubeConnectCard() {
   };
 
   const handleConnect = async () => {
+    console.log('\n═══════════════════════════════════════════════════════════');
+    console.log('🔗 [handleConnect] Starting YouTube OAuth connection');
+    console.log('═══════════════════════════════════════════════════════════\n');
+
     setIsConnecting(true);
     setError(null);
 
     try {
+      // Pre-flight check: Verify user is logged in
+      console.log('📋 [Pre-flight] Checking user authentication...');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      console.log('   └─ User authenticated:', !!session);
+      console.log('   └─ User ID:', session?.user?.id || 'N/A');
+
+      if (!session) {
+        console.error('   ❌ FAILED: User not authenticated');
+        throw new Error('Please sign in first to connect YouTube');
+      }
+      console.log('   ✅ PASSED: User is authenticated\n');
+
       // Call connect API endpoint
+      console.log('🌐 [API Call] Calling /api/youtube/connect...');
+      console.log('   └─ URL:', '/api/youtube/connect');
+      console.log('   └─ Method: POST');
+      console.log('   └─ Window origin:', window.location.origin);
+
       const response = await fetch('/api/youtube/connect', {
         method: 'POST',
         headers: {
@@ -112,17 +241,35 @@ export function YouTubeConnectCard() {
         },
       });
 
+      console.log('   └─ Response status:', response.status);
+      console.log('   └─ Response OK:', response.ok);
+
       if (!response.ok) {
         const { error } = await response.json();
+        console.error('   ❌ FAILED: API returned error');
+        console.error('   └─ Error message:', error);
         throw new Error(error || 'Failed to initiate YouTube connection');
       }
 
-      const { authUrl } = await response.json();
+      const { authUrl, state } = await response.json();
+
+      console.log('   ✅ PASSED: Received OAuth URL\n');
+      console.log('🔗 [OAuth URL] Generated:');
+      console.log('   └─ State:', state?.substring(0, 20) + '...');
+      console.log('   └─ URL length:', authUrl?.length, 'characters');
 
       // Redirect to Google OAuth consent screen
+      console.log('\n🔀 [Redirect] Navigating to Google OAuth...');
+      console.log('   └─ Destination: accounts.google.com');
+      console.log('═══════════════════════════════════════════════════════════\n');
+
       window.location.href = authUrl;
     } catch (err) {
-      console.error('Connection error:', err);
+      console.error('\n❌❌❌ [ERROR] handleConnect failed:', err);
+      console.error('   └─ Error type:', err instanceof Error ? err.constructor.name : typeof err);
+      console.error('   └─ Error message:', err instanceof Error ? err.message : String(err));
+      console.error('═══════════════════════════════════════════════════════════\n');
+
       setError(err instanceof Error ? err.message : 'Failed to connect to YouTube');
       setIsConnecting(false);
     }
