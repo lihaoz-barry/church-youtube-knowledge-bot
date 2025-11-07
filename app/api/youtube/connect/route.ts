@@ -84,14 +84,17 @@ export async function POST(request: NextRequest) {
     // For now, we'll include it in the response and verify via session
 
     // 5. Generate OAuth authorization URL
-    const redirectUri = `${request.nextUrl.origin}/api/youtube/callback`;
+    // Use NEXT_PUBLIC_APP_URL to ensure consistent redirect across deployments
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const redirectUri = `${appUrl}/api/youtube/callback`;
     const authUrl = generateAuthUrl(redirectUri, state);
 
     // Debug: log OAuth parameters to help resolve redirect_uri issues locally
     console.log('OAuth connect debug', {
       endpoint: '/api/youtube/connect',
       redirectUri,
-      origin: request.nextUrl.origin,
+      appUrl,
+      requestOrigin: request.nextUrl.origin,
       clientId: process.env.GOOGLE_CLIENT_ID,
     });
 

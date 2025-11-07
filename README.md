@@ -150,7 +150,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 # YouTube OAuth
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
-NEXT_PUBLIC_REDIRECT_URI=http://localhost:3000/api/youtube/callback
+NEXT_PUBLIC_REDIRECT_URI=http://localhost:8000/api/youtube/callback
 
 # OpenAI
 OPENAI_API_KEY=sk-your-openai-key
@@ -179,7 +179,9 @@ npx supabase gen types typescript --local > lib/supabase/types.ts
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the dashboard.
+Open [http://localhost:8000](http://localhost:8000) to see the dashboard.
+
+> **Note**: We use port 8000 because Windows Hyper-V/WSL reserves ports 2980-3079 (including 3000). If port 3000 is available on your system, you can modify the dev script in `package.json`.
 
 ---
 
